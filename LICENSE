@@ -1,0 +1,15 @@
+# Governed Transformation Standard — Licensing Notice
+
+Copyright 2026 Valentyn Rukhaylo / Altru.dev.
+
+Unless a file carries a more specific notice, the specification text, schemas, diagrams, examples, and other non-software specification material in this repository are licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0):
+
+https://creativecommons.org/licenses/by-nc/4.0/
+
+Commercial use is not granted by this public license and requires separate written permission from Valentyn Rukhaylo / Altru.dev.
+
+Software implementation code, if later added, must carry an explicit software license notice. In the absence of such a notice, no software license is granted.
+
+This license does not grant rights to private Frequency/DDC implementations, proprietary reasoning or scoring methods, internal policy logic, unpublished execution infrastructure, trademarks, certification marks, accreditation, or endorsements.
+
+Third-party material remains governed by its own licenses and notices.
