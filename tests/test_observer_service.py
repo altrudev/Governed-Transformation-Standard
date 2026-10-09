@@ -1,4 +1,5 @@
 import json
+import os
 import socket
 import tempfile
 import threading
@@ -44,6 +45,17 @@ class ServiceProtocolTests(unittest.TestCase):
     def test_extra_fields_rejected(self):
         e=self.event();e["path"]="/etc/shadow"
         self.assertEqual(self.send(e),b"")
+    def test_matching_kernel_peer_credential(self):
+        self.assertIn(b"recorded", self.send(self.event()))
+    def test_disallowed_peer_uid_rejected(self):
+        self.s.allowed_uids=frozenset({os.getuid()+100000})
+        try:
+            response=self.send(self.event())
+        except ConnectionResetError:
+            response=b""
+        self.assertEqual(response,b"")
+        self.assertEqual(self.s.events,[])
+        self.assertEqual(self.s.rejected,1)
     def test_missing_configuration_fails_closed(self):
         from unittest.mock import patch
         from observer.service import main

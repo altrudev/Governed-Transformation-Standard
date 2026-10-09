@@ -20,3 +20,6 @@ This blueprint is not an authorization to modify the host's users or run an unfi
 
 ## Implemented protocol prototype
 `observer.service` now exists as a fail-closed, test-only Unix event receiver: exact schema, configured per-deployment challenge, bounded messages, and duplicate case rejection. It does not expose an arbitrary signing, file-writing or shell-command endpoint. This does **not** make the systemd blueprint deployable: no authenticated peer identity, separate key custodian, durable journal, signature service, broker, or service-specific integration is complete. The challenge is bearer-style and would be visible to any process granted access; it is not issuer identity.
+
+## Peer credential gate (Linux prototype)
+The receiver checks Linux `SO_PEERCRED` kernel-supplied peer UID and rejects clients outside the configured UID allowlist before parsing events. Service startup requires `GTS_ALLOWED_PEER_UID`. Local tests exercise both accepted and denied peers by changing the allowlist, **not** by provisioning an independent host account. Kernel UID only authenticates the connecting local process identity; it does not prove application authorization, validate an effect, or provide third-party verification. The future broker must have its own service account and be the sole allowed peer, with end-to-end challenge and effect authorization.
