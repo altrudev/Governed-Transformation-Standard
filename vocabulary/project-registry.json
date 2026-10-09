@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "registry_version": "0.1-draft",
+  "scope": "public project identifiers and navigation, not implementation certification",
+  "projects": [
+    {"id":"altrudev.gts","name":"Governed Transformation Standard","owner":"Valentyn Rukhaylo / Altru.dev","repository":"https://github.com/altrudev/Governed-Transformation-Standard","visibility":"public","kind":"specification","relation":"this_project","claim_status":"not_certified"},
+    {"id":"altrudev.frequency","name":"Frequency","owner":"Valentyn Rukhaylo / Altru.dev","repository":"https://github.com/altrudev/Frequency","visibility":"private","kind":"implementation_and_research","relation":"related_project_and_potential_test_subject","claim_status":"unverified"},
+    {"id":"altrudev.ddc","name":"Dimensional Diffusion Computing (DDC)","owner":"Valentyn Rukhaylo / Altru.dev","repository":"https://github.com/altrudev/ddc","visibility":"private","kind":"research_and_implementation","relation":"research_origin","claim_status":"unverified"},
+    {"id":"altrudev.flowbound","name":"FlowBound","owner":"Valentyn Rukhaylo / Altru.dev","repository":"https://github.com/altrudev/FlowBound","visibility":"public","kind":"implementation","relation":"candidate_adapter","claim_status":"unverified"},
+    {"id":"altrudev.trace_spec","name":"TRACE","owner":"Altru.dev","repository":"https://github.com/altrudev/trace-spec","visibility":"public","kind":"specification","relation":"related_work","claim_status":"unverified"}
+  ]
+}

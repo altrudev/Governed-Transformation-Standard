@@ -34,3 +34,8 @@ Created by **Valentyn Rukhaylo / Altru.dev**.
 The [external verification protocol](docs/EXTERNAL-VERIFICATION.md) provides a public, provider-neutral testing contract. See the [adapter request schema](schemas/adapter-request.schema.json), [verification report schema](schemas/verification-report.schema.json), and [reference fixture adapter](adapters/reference/adapter.py).
 
 The included fixture tests can be run with `python3 -m unittest discover -s tests -v`. They test the sample adapter, **not** third-party security assurance or Frequency itself.
+
+## Technical language and project attribution
+GTS uses [established technical terminology](spec/terminology.md) and a [mandatory project attribution policy](spec/project-attribution.md). A [public project registry](vocabulary/project-registry.json) identifies related Altru.dev projects without claiming they are certified or disclosing proprietary code. References to another project's specific behavior require a pinned revision and test evidence.
+
+**Licensing note:** The repository's current licensing notice includes a CC BY-NC 4.0 restriction for specification materials; public availability is not equivalent to an OSI-approved open-source license. Review the [LICENSE](LICENSE) before reuse.
