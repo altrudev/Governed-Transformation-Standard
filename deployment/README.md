@@ -17,3 +17,6 @@ Deployment gates:
 Rollback: disable/stop the newly introduced unit, restore the prior service configuration, and leave evidence journals retained for review. Account deletion or key destruction is a separate approval-controlled action.
 
 This blueprint is not an authorization to modify the host's users or run an unfinished service.
+
+## Implemented protocol prototype
+`observer.service` now exists as a fail-closed, test-only Unix event receiver: exact schema, configured per-deployment challenge, bounded messages, and duplicate case rejection. It does not expose an arbitrary signing, file-writing or shell-command endpoint. This does **not** make the systemd blueprint deployable: no authenticated peer identity, separate key custodian, durable journal, signature service, broker, or service-specific integration is complete. The challenge is bearer-style and would be visible to any process granted access; it is not issuer identity.
