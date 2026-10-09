@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"GTS adapter request v0.1","type":"object","additionalProperties":false,"required":["protocol_version","case_id","operation","parameters"],"properties":{"protocol_version":{"const":"0.1"},"case_id":{"type":"string","minLength":1},"operation":{"enum":["capabilities","submit"]},"parameters":{"type":"object"}}}
