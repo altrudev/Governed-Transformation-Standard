@@ -23,3 +23,6 @@ This blueprint is not an authorization to modify the host's users or run an unfi
 
 ## Peer credential gate (Linux prototype)
 The receiver checks Linux `SO_PEERCRED` kernel-supplied peer UID and rejects clients outside the configured UID allowlist before parsing events. Service startup requires `GTS_ALLOWED_PEER_UID`. Local tests exercise both accepted and denied peers by changing the allowlist, **not** by provisioning an independent host account. Kernel UID only authenticates the connecting local process identity; it does not prove application authorization, validate an effect, or provide third-party verification. The future broker must have its own service account and be the sole allowed peer, with end-to-end challenge and effect authorization.
+
+## Read-only cross-account preflight
+Run `python3 -m deployment.preflight`. It inspects whether dedicated `gts-observer` and `gts-broker` users exist, have distinct UIDs, and whether service directories exist. It does not modify accounts, files or systemd. A passing preflight is only a prerequisite, not proof of correct ownership, socket permissions, independent key custody or service operation. Follow with a separately approved deployment and real access-denial tests.
