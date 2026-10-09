@@ -8,5 +8,8 @@ class HttpObserverFixtureTests(unittest.TestCase):
         outcome=trial(True)
         self.assertEqual(outcome["claimed_status"],"denied")
         self.assertEqual(len(outcome["observed_effects"]),1)
+    def test_observer_is_separate_process(self):
+        result=trial(False)
+        self.assertNotEqual(result["observer_pid"],result["runner_pid"])
     def test_negative_control_detected(self):
         self.assertEqual(assess()["status"],"fixture_detected")

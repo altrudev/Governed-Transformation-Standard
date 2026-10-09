@@ -7,14 +7,14 @@ import os
 import pathlib
 import subprocess
 import sys
-from observer.fixture_server import FixtureServer
+from observer.process_server import ObserverProcess
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CLIENT = ROOT / "fixtures" / "http_effect_adapter.py"
 
 def trial(mutant=False):
-    server = FixtureServer()
-    port = server.start()
+    server = ObserverProcess()
+    port = server.port
     try:
         env = dict(os.environ, GTS_EFFECT_URL=f"http://127.0.0.1:{port}/effect")
         if mutant:
@@ -27,7 +27,7 @@ def trial(mutant=False):
                            capture_output=True, text=True, env=env, timeout=5)
         reply = json.loads(p.stdout)
         return {"exit_code":p.returncode,"claimed_status":reply.get("status"),
-                "observed_effects":server.observed(), "mutant":mutant}
+                "observed_effects":server.observed(), "mutant":mutant, "observer_pid":server.pid, "runner_pid":os.getpid()}
     finally:
         server.close()
 
@@ -40,7 +40,7 @@ def assess():
                 and bad["observed_effects"][0]["case_id"] == "unauthorized-spend")
     return {"status":"fixture_detected" if detected else "inconclusive",
             "fixture_only":True,"third_party_verified":False,
-            "observer":"localhost HTTP observer in runner-owned background thread",
+            "observer":"separate OS process over localhost; same user, no sandbox",
             "normal":good,"mutant":bad}
 
 if __name__ == "__main__":
