@@ -29,3 +29,8 @@ Core lifecycle:
 GTS is intended as a provider-neutral contract for systems that need portable evidence of governed transformations across software engineering, agent execution, infrastructure changes, documents, payments, physical actions, and other consequential workflows.
 
 Created by **Valentyn Rukhaylo / Altru.dev**.
+
+## External verification protocol (draft 0.1)
+The [external verification protocol](docs/EXTERNAL-VERIFICATION.md) provides a public, provider-neutral testing contract. See the [adapter request schema](schemas/adapter-request.schema.json), [verification report schema](schemas/verification-report.schema.json), and [reference fixture adapter](adapters/reference/adapter.py).
+
+The included fixture tests can be run with `python3 -m unittest discover -s tests -v`. They test the sample adapter, **not** third-party security assurance or Frequency itself.
