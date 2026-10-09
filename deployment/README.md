@@ -26,3 +26,6 @@ The receiver checks Linux `SO_PEERCRED` kernel-supplied peer UID and rejects cli
 
 ## Read-only cross-account preflight
 Run `python3 -m deployment.preflight`. It inspects whether dedicated `gts-observer` and `gts-broker` users exist, have distinct UIDs, and whether service directories exist. It does not modify accounts, files or systemd. A passing preflight is only a prerequisite, not proof of correct ownership, socket permissions, independent key custody or service operation. Follow with a separately approved deployment and real access-denial tests.
+
+## Explicit host-account provisioning
+The idempotency-conscious proposal `deployment/provision-host.sh` prints its intended changes by default. Only an administrator can invoke it with `--apply` after reviewing the script. It refuses existing named accounts or existing observer paths rather than changing unknown state. It creates no keys, grants no broker socket access, and starts no service. If provisioning partially fails, an administrator must examine the identities and ownership before attempting any rollback; deleting accounts automatically could orphan retained evidence.
