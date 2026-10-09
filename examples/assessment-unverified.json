@@ -1,0 +1,14 @@
+{
+  "protocol_version": "0.1",
+  "subject_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "verifier_id": "internal-reference-fixture",
+  "independence": "internal",
+  "scope": "Synthetic adapter interface only. No security enforcement or external observation is exercised.",
+  "tests": [
+    {"case_id":"fixture-capabilities","verdict":"not_exercised","observation_ref":null}
+  ],
+  "limitations": [
+    "Example only, not a test result",
+    "No external verifier identity or independent observation"
+  ]
+}
