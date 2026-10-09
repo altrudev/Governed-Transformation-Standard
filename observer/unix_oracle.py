@@ -64,7 +64,7 @@ def trial(mutant=False):
             else:
                 env.pop("GTS_MUTANT", None)
             cmd = [
-                "bwrap", "--die-with-parent", "--unshare-all",
+                "bwrap", "--die-with-parent", "--unshare-all", "--uid", "65534", "--gid", "65534",
                 "--ro-bind", "/usr", "/usr", "--ro-bind", "/lib", "/lib",
                 "--ro-bind", "/lib64", "/lib64", "--proc", "/proc",
                 "--dev", "/dev", "--tmpfs", "/tmp", "--tmpfs", "/home",
