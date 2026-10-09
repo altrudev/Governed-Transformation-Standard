@@ -1,0 +1,5 @@
+# Broker-to-observer boundary — local prototype
+
+The broker client sends only a bounded `synthetic-effect` event to the observer through a Unix-domain socket. The observer independently checks Linux kernel-provided `SO_PEERCRED` UID against its allowlist and rejects duplicate case IDs, wrong challenges and unexpected event fields. Negative tests simulate an unauthorized peer by disallowing the executing test UID, rather than actually creating a distinct host OS account.
+
+This is **not yet a separately administered principal deployment**. The broker and observer still run within the test operator's host identity; the fixture does not prove that an untrusted adapter cannot impersonate the broker, nor does it provision an observer-only key. There is no signing endpoint and no general observer journal query protocol. Strong custody requires separately provisioned host users, correctly owned socket and filesystem, an authenticated broker holding no signing key, and adversarial tests running as the real untrusted UID. These gates must be met before deployment or independent assurance claims.

@@ -1,0 +1,35 @@
+# Example deployment blueprint; NOT installed by this repository.
+[Unit]
+Description=GTS isolated evidence observer (example)
+After=local-fs.target
+[Service]
+Type=exec
+User=gts-observer
+Group=gts-observer
+UMask=0077
+ExecStart=/usr/bin/python3 -m observer.service
+WorkingDirectory=/opt/gts-observer
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+RuntimeDirectory=gts-observer
+RuntimeDirectoryMode=0700
+StateDirectory=gts-observer
+StateDirectoryMode=0700
+ReadWritePaths=/run/gts-observer /var/lib/gts-observer
+MemoryMax=256M
+TasksMax=32
+CPUQuota=25%
+LimitNOFILE=128
+SystemCallArchitectures=native
+[Install]
+WantedBy=multi-user.target
