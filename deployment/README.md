@@ -32,3 +32,6 @@ The idempotency-conscious proposal `deployment/provision-host.sh` prints its int
 
 ## Broker socket access and observer storage separation
 The service runs under host UID `gts-observer` with primary group `gts-broker`. Its runtime directory is intended to be mode 0710, traversable by the broker group but not listable. The observer socket is mode 0660, allowing that group to connect. The state directory is mode 0700, owner-only regardless of group. These are **proposed** runtime permissions; effective systemd directory ownership and supplementary group effects must be verified on-host after installation. Do not add the ordinary interactive user to either privileged group. The UID allowlist must match the actually provisioned broker UID and is currently an example value, not a portable hardcoded identity. The service still requires administrator-provisioned configuration/secret challenge.
+
+## Host verification checkpoint
+After provisioning, verify successful observer access and denied broker access **with their actual exit codes**. Existence and directory mode inspection alone are insufficient. The runtime socket directory is generated when a reviewed systemd service starts; it should not be treated as a provisioning-script artifact. Do not enable the service until a distinct broker/observer identity test and journal/key custody test are reproducible.
