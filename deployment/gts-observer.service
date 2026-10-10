@@ -5,8 +5,10 @@ After=local-fs.target
 [Service]
 Type=exec
 User=gts-observer
-Group=gts-observer
+Group=gts-broker
 UMask=0077
+Environment=GTS_ALLOWED_PEER_UID=990
+# Operator must inject challenge and socket via a protected credential/configuration step.
 ExecStart=/usr/bin/python3 -m observer.service
 WorkingDirectory=/opt/gts-observer
 NoNewPrivileges=yes
@@ -22,7 +24,7 @@ LockPersonality=yes
 RestrictAddressFamilies=AF_UNIX
 IPAddressDeny=any
 RuntimeDirectory=gts-observer
-RuntimeDirectoryMode=0700
+RuntimeDirectoryMode=0710
 StateDirectory=gts-observer
 StateDirectoryMode=0700
 ReadWritePaths=/run/gts-observer /var/lib/gts-observer

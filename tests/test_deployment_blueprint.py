@@ -9,6 +9,9 @@ class UnitBlueprintTests(unittest.TestCase):
         cfg.read(UNIT)
         service=cfg["Service"]
         self.assertEqual(service["User"],"gts-observer")
+        self.assertEqual(service["Group"],"gts-broker")
+        self.assertEqual(service["RuntimeDirectoryMode"],"0710")
+        self.assertEqual(service["StateDirectoryMode"],"0700")
         self.assertEqual(service["NoNewPrivileges"],"yes")
         self.assertEqual(service["ProtectSystem"],"strict")
         self.assertEqual(service["ProtectHome"],"yes")

@@ -56,7 +56,7 @@ def serve(path, challenge, allowed_uids):
     if location.exists():
         raise RuntimeError("refusing existing socket path")
     server = Receiver(location, challenge, allowed_uids)
-    os.chmod(location, 0o600)
+    os.chmod(location, 0o660)
     try:
         server.serve_forever()
     finally:
