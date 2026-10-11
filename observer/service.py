@@ -13,9 +13,10 @@ ALLOWED = {"case_id", "operation", "challenge"}
 
 class Receiver(socketserver.ThreadingUnixStreamServer):
     daemon_threads = True
-    def __init__(self, socket_path, challenge, allowed_uids=None, authority=None):
+    def __init__(self, socket_path, challenge, allowed_uids=None, authority=None, durable_events=None):
         self.challenge = challenge
         self.authority = authority
+        self.durable_events = durable_events
         self.allowed_uids = frozenset(allowed_uids if allowed_uids is not None else {os.getuid()})
         self.events = []
         self.rejected = 0
@@ -54,6 +55,8 @@ class Handler(socketserver.StreamRequestHandler):
             with self.server.lock:
                 if any(e["case_id"] == event["case_id"] for e in self.server.events):
                     raise ValueError("duplicate")
+                if self.server.durable_events is not None:
+                    self.server.durable_events.append(event["case_id"], event["operation"])
                 self.server.events.append(event)
             self.wfile.write(b'{"status":"recorded"}\n')
         except (ValueError, UnicodeError, OSError, TimeoutError):
