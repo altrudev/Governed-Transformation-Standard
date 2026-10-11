@@ -51,7 +51,7 @@ class ServiceProtocolTests(unittest.TestCase):
         self.s.allowed_uids=frozenset({os.getuid()+100000})
         try:
             response=self.send(self.event())
-        except ConnectionResetError:
+        except (ConnectionResetError, BrokenPipeError):
             response=b""
         self.assertEqual(response,b"")
         self.assertEqual(self.s.events,[])

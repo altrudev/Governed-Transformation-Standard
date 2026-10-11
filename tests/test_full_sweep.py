@@ -1,26 +1,23 @@
-import tempfile
 import unittest
-from pathlib import Path
-from shutil import copytree
-from assurance.full_sweep import ROOT, run
+from unittest.mock import patch
+from assurance.full_sweep import run, execute, ROOT, TEST_GROUPS, MANDATORY_HOST
 
-class FullSweepTests(unittest.TestCase):
-    def test_current_release_controls_fail_gate(self):
-        result=run()
+class ReleaseGateTests(unittest.TestCase):
+    def test_missing_host_witnesses_block_release(self):
+        result=run(execute_tests=False)
+        self.assertFalse(result["release_authorized"])
         self.assertEqual(result["overall"],"BLOCKED")
-        by_id={x["id"]:x["status"] for x in result["findings"]}
-        self.assertEqual(by_id["challenge_authority_enforced_in_receiver"],"STATIC_INDICATOR_ONLY")
-        self.assertEqual(by_id["journal_write_on_observation"],"BLOCKED")
-    def test_a_comment_does_not_satisfy_call_gate(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            base=Path(tmp)
-            for part in ("observer","deployment"):
-                copytree(ROOT/part,base/part,ignore=lambda d,n: ["__pycache__"])
-            (base/"observer/service.py").write_text((base/"observer/service.py").read_text()
-                 +"\n# consume sign_journal fsync\n")
-            self.assertEqual(run(base)["overall"],"BLOCKED")
-    def test_gate_count_matches_findings(self):
-        result=run()
-        self.assertEqual(result["total_gates"],len(result["findings"]))
-        self.assertEqual(result["verified_gates"],0)
-        self.assertEqual(result["static_indicators_found"],sum(f["status"]=="STATIC_INDICATOR_ONLY" for f in result["findings"]))
+        self.assertEqual(set(result["required_host_witnesses"]),set(MANDATORY_HOST))
+    def test_successful_tests_do_not_override_missing_host_witnesses(self):
+        good={"status":"PASS","exit_code":0,"output_sha256":"a"*64}
+        with patch("assurance.full_sweep.execute", return_value=good):
+            result=run()
+        self.assertFalse(result["release_authorized"])
+        self.assertEqual(len(result["test_execution"]),len(TEST_GROUPS))
+    def test_command_failure_is_not_success(self):
+        failure=execute(ROOT,["test_nonexistent_module_314159","-q"])
+        self.assertEqual(failure["status"],"FAIL")
+        self.assertNotEqual(failure["exit_code"],0)
+    def test_failing_group_blocks_release(self):
+        with patch("assurance.full_sweep.execute", return_value={"status":"FAIL","exit_code":1}):
+            self.assertFalse(run()["release_authorized"])

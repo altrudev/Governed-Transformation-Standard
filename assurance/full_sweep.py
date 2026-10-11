@@ -1,61 +1,83 @@
-"""GTS assurance sweep: machine-checkable wiring gates, not certification."""
+"""Evidence-driven GTS release gate. A missing witness is never a pass."""
 import argparse
-import ast
+import hashlib
 import json
-import pathlib
+import os
+from pathlib import Path
 import subprocess
 import sys
+import tempfile
+from datetime import datetime, timezone
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-def source(relative, root=ROOT):
-    return (root / relative).read_text(encoding="utf-8")
+ROOT = Path(__file__).resolve().parents[1]
+MANDATORY_HOST = (
+    "real_cross_account_socket",
+    "trusted_evaluator_to_broker_delivery",
+    "observer_owned_signer_and_pinned_verifier",
+    "crash_recovery_and_external_journal_anchor",
+    "sandbox_broker_impersonation_denial",
+)
+TEST_GROUPS = {
+    "regression": ["discover", "-s", "tests", "-q"],
+    "adversarial_integration": ["tests.test_integrated_evidence_path",
+        "tests.test_receiver_authority_wiring", "tests.test_issuance_socket",
+        "tests.test_strict_observer", "tests.test_key_custody",
+        "tests.test_durable_events", "tests.test_adversarial_static_challenge", "-q"],
+}
+def execute(root, args, timeout=90):
+    try:
+        proc = subprocess.run([sys.executable, "-m", "unittest", *args], cwd=root,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+        raw = proc.stdout
+        return {"status": "PASS" if proc.returncode == 0 else "FAIL",
+                "exit_code": proc.returncode, "output_sha256": hashlib.sha256(raw).hexdigest(),
+                "output_bytes": len(raw), "output_tail": raw.decode("utf-8", "replace")[-1200:]}
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return {"status": "BLOCKED", "reason": type(exc).__name__}
 
-def references(relative, names, root=ROOT):
-    """Look for executable references, excluding comments, strings and test files."""
-    tree = ast.parse(source(relative, root))
-    called = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            fn = node.func
-            if isinstance(fn, ast.Name):
-                called.add(fn.id)
-            elif isinstance(fn, ast.Attribute):
-                called.add(fn.attr)
-    return all(name in called for name in names)
-
-def run(root=ROOT):
-    root = pathlib.Path(root)
-    svc = "observer/service.py"
-    checks = {
-        "challenge_authority_enforced_in_receiver": references(svc, ["consume"], root)
-            and "challenge_authority" in source(svc, root),
-        "journal_write_on_observation": references(svc, ["sign_journal"], root),
-        "durable_observer_custody": references(svc, ["fsync"], root),
-        "independent_verifier_in_acceptance_path": references("deployment/acceptance.py", ["verify_journal"], root),
-        "deployment_is_actually_gated": "ExecStartPre=" in source("deployment/gts-observer.service", root),
-        "secret_delivery_to_broker_implemented": (root / "broker/authority.py").is_file(),
-        "real_cross_account_test_implemented": (root / "tests/test_real_host_socket.py").is_file(),
-        "production_credential_installation_implemented": (root / "deployment/install-observer.sh").is_file(),
+def run(root=ROOT, execute_tests=True):
+    root = Path(root)
+    tests = {name: execute(root, args) for name, args in TEST_GROUPS.items()} if execute_tests else {}
+    host = {name: {"status": "BLOCKED", "reason": "No independent host witness evidence collected"}
+            for name in MANDATORY_HOST}
+    commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True)
+    revision = commit.stdout.strip() if commit.returncode == 0 else None
+    diff = subprocess.run(["git", "status", "--porcelain"], cwd=root, capture_output=True, text=True)
+    clean = diff.returncode == 0 and not diff.stdout.strip()
+    accepted = bool(tests) and all(item["status"] == "PASS" for item in tests.values()) and clean and all(
+        item["status"] == "PASS" for item in host.values())
+    return {
+        "schema": "gts.release-evidence.v1", "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "revision": revision, "working_tree_clean": clean,
+        "test_execution": tests, "required_host_witnesses": host,
+        "total_gates": len(tests)+len(host),
+        "verified_gates": sum(item["status"]=="PASS" for item in tests.values()),
+        "overall": "PASS" if accepted else "BLOCKED",
+        "release_authorized": accepted,
+        "limitations": [
+            "Test process exit codes and output hashes are local evidence, not independent attestations.",
+            "Host witnesses require a separate controlled evidence ingestion and verification workflow.",
+            "An externally anchored observer journal and production release equivalence remain unverified."
+        ],
     }
-    findings = [{"id": key, "status": "STATIC_INDICATOR_ONLY" if ok else "BLOCKED",
-                 "basis": "static call-site / artifact presence only; must also validate dynamically"}
-                for key,ok in checks.items()]
-    return {"schema": "gts.full-sweep.v1", "overall": "BLOCKED",
-            "verified_gates": 0, "static_indicators_found": sum(checks.values()), "total_gates": len(checks),
-            "findings": findings, "limitations": [
-                "Static call-site checks can be gamed and do not establish run-time execution or production acceptance.",
-                "No independently controlled host, secrets, hardware or external assessor is exercised.",
-                "Full end-to-end, fault injection and mutation coverage remain mandatory release gates."
-            ]}
+
 def main():
-    parser=argparse.ArgumentParser()
-    parser.add_argument("--report", type=pathlib.Path)
-    args=parser.parse_args()
-    result=run()
-    report=json.dumps(result,indent=2,sort_keys=True)+"\n"
-    print(report,end="")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--report", type=Path)
+    args = parser.parse_args()
+    result = run()
+    payload = json.dumps(result, indent=2, sort_keys=True)+"\n"
     if args.report:
-        args.report.write_text(report,encoding="utf-8")
-    return 0 if result["overall"] == "PASS" else 2
+        args.report.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        fd = os.open(args.report, os.O_WRONLY|os.O_CREAT|os.O_TRUNC|getattr(os, "O_NOFOLLOW", 0), 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+    print(payload, end="")
+    return 0 if result["release_authorized"] else 2
+
 if __name__ == "__main__":
     sys.exit(main())
