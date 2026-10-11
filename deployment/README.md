@@ -41,3 +41,6 @@ The service now requires a systemd `LoadCredential=observer_challenge` file prov
 
 ## Deployment readiness gate
 Run `python3 -m deployment.readiness` before attempting installation. It checks real host accounts, evidence directory mode, observer code under `/opt`, operator-provisioned credential file existence, and installed unit existence, without reading credentials or changing the host. A green readiness report is **not** a functional access-control test or permission to start the service; credentials, package provenance, broker distribution and rollback must be separately reviewed.
+
+## Mandatory acceptance gate
+`python3 -m deployment.acceptance` refuses to authorize installation, even when a caller submits claims of successful checks. This is deliberate: no verifier-operated, raw-evidence-backed cross-account socket test or trusted challenge issuer exists. See `docs/BROKER-CHALLENGE-CONTRACT.md`. Do not treat account provisioning as authorization to enable the service.
