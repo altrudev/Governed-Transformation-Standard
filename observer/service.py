@@ -13,7 +13,10 @@ ALLOWED = {"case_id", "operation", "challenge"}
 
 class Receiver(socketserver.ThreadingUnixStreamServer):
     daemon_threads = True
-    def __init__(self, socket_path, challenge, allowed_uids=None, authority=None, durable_events=None):
+    def __init__(self, socket_path, challenge, allowed_uids=None, authority=None, durable_events=None, strict=False):
+        if strict and (authority is None or durable_events is None or challenge is not None):
+            raise ValueError("strict observer requires scoped authority, durable journal and no legacy secret")
+        self.strict = strict
         self.challenge = challenge
         self.authority = authority
         self.durable_events = durable_events
@@ -49,7 +52,7 @@ class Handler(socketserver.StreamRequestHandler):
                     case_id=event["case_id"], purpose=event["operation"],
                     token=event["challenge"])
             else:
-                admitted = event["challenge"] == self.server.challenge
+                admitted = not self.server.strict and event["challenge"] == self.server.challenge
             if not admitted:
                 raise ValueError("invalid event")
             with self.server.lock:
