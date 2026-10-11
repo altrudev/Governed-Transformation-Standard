@@ -1,5 +1,6 @@
 import concurrent.futures
 import tempfile
+from unittest.mock import patch
 import unittest
 from pathlib import Path
 from observer.durable_events import DurableEvents
@@ -38,3 +39,17 @@ class DurableEventsTests(unittest.TestCase):
     def test_bad_event_rejected(self):
         store=DurableEvents(self.path)
         with self.assertRaises(ValueError):store.append("x","arbitrary-sign")
+
+    def test_write_failure_poisoned_until_recovery(self):
+        store=DurableEvents(self.path)
+        with patch("observer.durable_events.os.fsync", side_effect=OSError("injected fsync failure")):
+            with self.assertRaises(OSError):
+                store.append("a","synthetic-effect")
+        with self.assertRaises(RuntimeError):
+            store.append("b","synthetic-effect")
+        # The fsync failure may have written an entire record; restart
+        # reconstructs it, rather than replaying the original case.
+        fresh=DurableEvents(self.path)
+        self.assertEqual(fresh.count,1)
+        with self.assertRaises(ValueError):
+            fresh.append("a","synthetic-effect")

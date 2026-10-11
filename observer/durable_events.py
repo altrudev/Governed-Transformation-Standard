@@ -21,6 +21,7 @@ class DurableEvents:
         self._cases = set()
         self._previous = "0" * 64
         self._count = 0
+        self._failed = False
         if not self.path.parent.is_dir():
             raise RuntimeError("journal parent missing")
         if self.path.exists():
@@ -70,6 +71,8 @@ class DurableEvents:
         if not isinstance(case_id, str) or not 1 <= len(case_id) <= 128 or operation != "synthetic-effect":
             raise ValueError("invalid event")
         with self.lock:
+            if self._failed:
+                raise RuntimeError("journal requires recovery after write failure")
             if case_id in self._cases:
                 raise ValueError("duplicate committed case")
             record = {"index": self._count, "previous": self._previous,
@@ -79,13 +82,17 @@ class DurableEvents:
             payload = canonical(record) + b"\n"
             flags = os.O_WRONLY | os.O_APPEND
             if hasattr(os, "O_NOFOLLOW"): flags |= os.O_NOFOLLOW
-            fd = os.open(self.path, flags)
             try:
-                if os.write(fd, payload) != len(payload):
-                    raise OSError("short journal write; recovery required")
-                os.fsync(fd)
-            finally:
-                os.close(fd)
+                fd = os.open(self.path, flags)
+                try:
+                    if os.write(fd, payload) != len(payload):
+                        raise OSError("short journal write; recovery required")
+                    os.fsync(fd)
+                finally:
+                    os.close(fd)
+            except OSError:
+                self._failed = True
+                raise
             self._count += 1
             self._previous = digest
             self._cases.add(case_id)
