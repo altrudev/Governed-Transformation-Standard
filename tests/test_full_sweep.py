@@ -9,8 +9,8 @@ class FullSweepTests(unittest.TestCase):
         result=run()
         self.assertEqual(result["overall"],"BLOCKED")
         by_id={x["id"]:x["status"] for x in result["findings"]}
-        self.assertEqual(by_id["challenge_authority_enforced_in_receiver"],"PASS")
-        self.assertEqual(by_id["journal_write_on_observation"],"FAIL")
+        self.assertEqual(by_id["challenge_authority_enforced_in_receiver"],"STATIC_INDICATOR_ONLY")
+        self.assertEqual(by_id["journal_write_on_observation"],"BLOCKED")
     def test_a_comment_does_not_satisfy_call_gate(self):
         with tempfile.TemporaryDirectory() as tmp:
             base=Path(tmp)
@@ -22,4 +22,5 @@ class FullSweepTests(unittest.TestCase):
     def test_gate_count_matches_findings(self):
         result=run()
         self.assertEqual(result["total_gates"],len(result["findings"]))
-        self.assertEqual(result["verified_gates"],sum(f["status"]=="PASS" for f in result["findings"]))
+        self.assertEqual(result["verified_gates"],0)
+        self.assertEqual(result["static_indicators_found"],sum(f["status"]=="STATIC_INDICATOR_ONLY" for f in result["findings"]))

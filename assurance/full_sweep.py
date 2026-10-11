@@ -37,13 +37,13 @@ def run(root=ROOT):
         "real_cross_account_test_implemented": (root / "tests/test_real_host_socket.py").is_file(),
         "production_credential_installation_implemented": (root / "deployment/install-observer.sh").is_file(),
     }
-    findings = [{"id": key, "status": "PASS" if ok else "FAIL",
+    findings = [{"id": key, "status": "STATIC_INDICATOR_ONLY" if ok else "BLOCKED",
                  "basis": "static call-site / artifact presence only; must also validate dynamically"}
                 for key,ok in checks.items()]
-    return {"schema": "gts.full-sweep.v1", "overall": "PASS" if all(checks.values()) else "BLOCKED",
-            "verified_gates": sum(checks.values()), "total_gates": len(checks),
+    return {"schema": "gts.full-sweep.v1", "overall": "BLOCKED",
+            "verified_gates": 0, "static_indicators_found": sum(checks.values()), "total_gates": len(checks),
             "findings": findings, "limitations": [
-                "Static call-site checks can be gamed and do not establish run-time execution.",
+                "Static call-site checks can be gamed and do not establish run-time execution or production acceptance.",
                 "No independently controlled host, secrets, hardware or external assessor is exercised.",
                 "Full end-to-end, fault injection and mutation coverage remain mandatory release gates."
             ]}
