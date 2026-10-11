@@ -5,11 +5,11 @@ from shutil import copytree
 from assurance.full_sweep import ROOT, run
 
 class FullSweepTests(unittest.TestCase):
-    def test_current_disconnected_controls_fail_gate(self):
+    def test_current_release_controls_fail_gate(self):
         result=run()
         self.assertEqual(result["overall"],"BLOCKED")
         by_id={x["id"]:x["status"] for x in result["findings"]}
-        self.assertEqual(by_id["challenge_authority_enforced_in_receiver"],"FAIL")
+        self.assertEqual(by_id["challenge_authority_enforced_in_receiver"],"PASS")
         self.assertEqual(by_id["journal_write_on_observation"],"FAIL")
     def test_a_comment_does_not_satisfy_call_gate(self):
         with tempfile.TemporaryDirectory() as tmp:

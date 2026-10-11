@@ -7,13 +7,15 @@ import socketserver
 import socket
 import struct
 import threading
+from observer.challenge_authority import ChallengeAuthority
 
 ALLOWED = {"case_id", "operation", "challenge"}
 
 class Receiver(socketserver.ThreadingUnixStreamServer):
     daemon_threads = True
-    def __init__(self, socket_path, challenge, allowed_uids=None):
+    def __init__(self, socket_path, challenge, allowed_uids=None, authority=None):
         self.challenge = challenge
+        self.authority = authority
         self.allowed_uids = frozenset(allowed_uids if allowed_uids is not None else {os.getuid()})
         self.events = []
         self.rejected = 0
@@ -39,7 +41,15 @@ class Handler(socketserver.StreamRequestHandler):
                 or event["operation"] != "synthetic-effect"
                 or not isinstance(event["case_id"], str)
                 or len(event["case_id"]) > 128
-                or event["challenge"] != self.server.challenge):
+                or not isinstance(event["challenge"], str)):
+                raise ValueError("invalid event")
+            if self.server.authority is not None:
+                admitted = self.server.authority.consume(
+                    case_id=event["case_id"], purpose=event["operation"],
+                    token=event["challenge"])
+            else:
+                admitted = event["challenge"] == self.server.challenge
+            if not admitted:
                 raise ValueError("invalid event")
             with self.server.lock:
                 if any(e["case_id"] == event["case_id"] for e in self.server.events):
@@ -78,7 +88,8 @@ def main():
             raise ValueError("invalid challenge or runtime directory")
     except (OSError, KeyError, ValueError, UnicodeError) as exc:
         raise SystemExit("observer configuration unavailable") from exc
-    serve(str(runtime / "observer.sock"), challenge, {allowed_uid})
+    # No trusted issuance channel exists yet; refusing the insecure legacy path.
+    raise SystemExit("trusted challenge issuance not configured; refuse deployment")
 
 if __name__ == "__main__":
     main()
