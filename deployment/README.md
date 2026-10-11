@@ -35,3 +35,6 @@ The service runs under host UID `gts-observer` with primary group `gts-broker`. 
 
 ## Host verification checkpoint
 After provisioning, verify successful observer access and denied broker access **with their actual exit codes**. Existence and directory mode inspection alone are insufficient. The runtime socket directory is generated when a reviewed systemd service starts; it should not be treated as a provisioning-script artifact. Do not enable the service until a distinct broker/observer identity test and journal/key custody test are reproducible.
+
+## Startup configuration contract (revised)
+The service now requires a systemd `LoadCredential=observer_challenge` file provisioned by the operator at `/etc/gts-observer/observer_challenge`. The observer reads the credential from `CREDENTIALS_DIRECTORY`, receives its socket directory from systemd `RUNTIME_DIRECTORY`, and resolves `gts-broker` to a host UID at startup; it no longer relies on a hardcoded UID or a challenge directly passed through an environment variable. Missing configuration fails closed. The unit is **not yet approved for enablement**. The broker's secure challenge acquisition remains a separate design issue; the challenge alone is not authentication and must not be exposed to the test subject.

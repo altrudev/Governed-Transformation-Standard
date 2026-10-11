@@ -7,8 +7,8 @@ Type=exec
 User=gts-observer
 Group=gts-broker
 UMask=0077
-Environment=GTS_ALLOWED_PEER_UID=990
-# Operator must inject challenge and socket via a protected credential/configuration step.
+LoadCredential=observer_challenge:/etc/gts-observer/observer_challenge
+# Requires administrator-provisioned 32+ character challenge; do not enable without it.
 ExecStart=/usr/bin/python3 -m observer.service
 WorkingDirectory=/opt/gts-observer
 NoNewPrivileges=yes

@@ -2,6 +2,7 @@
 import json
 import os
 import pathlib
+import pwd
 import socketserver
 import socket
 import struct
@@ -64,12 +65,20 @@ def serve(path, challenge, allowed_uids):
 
 def main():
     # Fail closed without operator configured challenge and socket directory.
-    challenge = os.environ.get("GTS_OBSERVER_CHALLENGE")
-    path = os.environ.get("GTS_OBSERVER_SOCKET")
-    allowed_uid = os.environ.get('GTS_ALLOWED_PEER_UID')
-    if not challenge or len(challenge) < 32 or not path or not allowed_uid or not allowed_uid.isdecimal():
-        raise SystemExit("observer service requires configured challenge and socket")
-    serve(path, challenge, {int(allowed_uid)})
+    credential_dir = os.environ.get("CREDENTIALS_DIRECTORY")
+    runtime_dir = os.environ.get("RUNTIME_DIRECTORY")
+    if not credential_dir or not runtime_dir:
+        raise SystemExit("observer requires systemd credential and runtime directories")
+    try:
+        challenge_file = pathlib.Path(credential_dir) / "observer_challenge"
+        challenge = challenge_file.read_text(encoding="ascii").strip()
+        allowed_uid = pwd.getpwnam("gts-broker").pw_uid
+        runtime = pathlib.Path(runtime_dir).resolve(strict=True)
+        if len(challenge) < 32 or not runtime.is_dir():
+            raise ValueError("invalid challenge or runtime directory")
+    except (OSError, KeyError, ValueError, UnicodeError) as exc:
+        raise SystemExit("observer configuration unavailable") from exc
+    serve(str(runtime / "observer.sock"), challenge, {allowed_uid})
 
 if __name__ == "__main__":
     main()
