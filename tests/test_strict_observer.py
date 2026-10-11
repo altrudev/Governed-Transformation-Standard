@@ -20,8 +20,18 @@ class StrictObserverTests(unittest.TestCase):
     def test_secure_constructor_requires_all_controls(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)
-            service=Receiver(path/"socket",None,{os.getuid()},
+            service=Receiver(path/"socket",None,{os.getuid()+100000},
                 authority=ChallengeAuthority(),
                 durable_events=DurableEvents(path/"journal"),strict=True)
             self.assertTrue(service.strict)
+            service.authority = None
+            self.assertIsNone(service.authority)
             service.server_close()
+
+    def test_strict_rejects_same_uid_as_broker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)
+            with self.assertRaises(ValueError):
+                Receiver(path/"socket",None,{os.getuid()},
+                    authority=ChallengeAuthority(),
+                    durable_events=DurableEvents(path/"journal"),strict=True)

@@ -16,6 +16,8 @@ class Receiver(socketserver.ThreadingUnixStreamServer):
     def __init__(self, socket_path, challenge, allowed_uids=None, authority=None, durable_events=None, strict=False):
         if strict and (authority is None or durable_events is None or challenge is not None):
             raise ValueError("strict observer requires scoped authority, durable journal and no legacy secret")
+        if strict and (not allowed_uids or os.getuid() in allowed_uids):
+            raise ValueError("strict observer requires explicit separate broker UID")
         self.strict = strict
         self.challenge = challenge
         self.authority = authority
@@ -47,6 +49,8 @@ class Handler(socketserver.StreamRequestHandler):
                 or len(event["case_id"]) > 128
                 or not isinstance(event["challenge"], str)):
                 raise ValueError("invalid event")
+            if self.server.strict and (self.server.authority is None or self.server.durable_events is None):
+                raise ValueError("mandatory observer controls removed")
             if self.server.authority is not None:
                 admitted = self.server.authority.consume(
                     case_id=event["case_id"], purpose=event["operation"],
