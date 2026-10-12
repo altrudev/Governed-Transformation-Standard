@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
+from assurance.witness import check_external_witnesses
 
 ROOT = Path(__file__).resolve().parents[1]
 MANDATORY_HOST = (
@@ -36,15 +37,14 @@ def execute(root, args, timeout=90):
     except (subprocess.TimeoutExpired, OSError) as exc:
         return {"status": "BLOCKED", "reason": type(exc).__name__}
 
-def run(root=ROOT, execute_tests=True):
+def run(root=ROOT, execute_tests=True, witness_dir=None, trust_anchor=None):
     root = Path(root)
     tests = {name: execute(root, args) for name, args in TEST_GROUPS.items()} if execute_tests else {}
-    host = {name: {"status": "BLOCKED", "reason": "No independent host witness evidence collected"}
-            for name in MANDATORY_HOST}
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True)
     revision = commit.stdout.strip() if commit.returncode == 0 else None
     diff = subprocess.run(["git", "status", "--porcelain"], cwd=root, capture_output=True, text=True)
     clean = diff.returncode == 0 and not diff.stdout.strip()
+    host = check_external_witnesses(witness_dir, trust_anchor, MANDATORY_HOST, revision)
     accepted = bool(tests) and all(item["status"] == "PASS" for item in tests.values()) and clean and all(
         item["status"] == "PASS" for item in host.values())
     return {
@@ -52,7 +52,7 @@ def run(root=ROOT, execute_tests=True):
         "revision": revision, "working_tree_clean": clean,
         "test_execution": tests, "required_host_witnesses": host,
         "total_gates": len(tests)+len(host),
-        "verified_gates": sum(item["status"]=="PASS" for item in tests.values()),
+        "verified_gates": sum(item["status"]=="PASS" for item in tests.values()) + sum(item["status"]=="PASS" for item in host.values()),
         "overall": "PASS" if accepted else "BLOCKED",
         "release_authorized": accepted,
         "limitations": [
@@ -65,8 +65,10 @@ def run(root=ROOT, execute_tests=True):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--witness-dir", type=Path)
+    parser.add_argument("--trust-anchor", type=Path)
     args = parser.parse_args()
-    result = run()
+    result = run(witness_dir=args.witness_dir, trust_anchor=args.trust_anchor)
     payload = json.dumps(result, indent=2, sort_keys=True)+"\n"
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
