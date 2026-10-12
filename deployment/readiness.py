@@ -10,7 +10,8 @@ def inspect():
     try:
         observer = pwd.getpwnam("gts-observer")
         broker = pwd.getpwnam("gts-broker")
-        checks["distinct_accounts"] = observer.pw_uid != broker.pw_uid
+        evaluator = pwd.getpwnam("gts-evaluator")
+        checks["distinct_accounts"] = len({observer.pw_uid, broker.pw_uid, evaluator.pw_uid}) == 3
     except KeyError:
         checks["distinct_accounts"] = False
         observer = None

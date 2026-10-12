@@ -14,7 +14,8 @@ import threading
 
 class IssuanceServer(socketserver.ThreadingUnixStreamServer):
     daemon_threads = True
-    def __init__(self, path, authority, evaluator_uid, observer_uid=None):
+    def __init__(self, path, authority, evaluator_uid, observer_uid=None,
+                 evaluator_gid=None):
         if not isinstance(evaluator_uid, int) or evaluator_uid < 0:
             raise ValueError("invalid evaluator identity")
         if observer_uid is not None and evaluator_uid == observer_uid:
@@ -23,16 +24,35 @@ class IssuanceServer(socketserver.ThreadingUnixStreamServer):
         if not location.parent.is_dir() or location.is_symlink() or location.exists():
             raise ValueError("issuer socket location unavailable or already occupied")
         parent = location.parent.stat()
-        if (parent.st_uid != os.geteuid() or stat.S_IMODE(parent.st_mode) & 0o077):
-            raise PermissionError("issuer socket directory must be owner-private")
+        if parent.st_uid != os.geteuid() or not stat.S_ISDIR(parent.st_mode):
+            raise PermissionError("issuer socket parent must belong to observer")
+        mode = stat.S_IMODE(parent.st_mode)
+        if evaluator_gid is None:
+            if mode & 0o077:
+                raise PermissionError("issuer socket directory must be owner-private")
+        else:
+            # The operator provisions a separate directory owned by the
+            # observer and grouped to the evaluator. Group can traverse only,
+            # and never list or create files. Refuse broader permissions.
+            if (not isinstance(evaluator_gid, int) or evaluator_gid < 0
+                or evaluator_gid not in os.getgroups() + [os.getegid()]
+                or parent.st_gid != evaluator_gid or mode != 0o710):
+                raise PermissionError("issuer directory lacks isolated evaluator ACL")
         self.authority = authority
         self.evaluator_uid = evaluator_uid
+        self.evaluator_gid = evaluator_gid
         self.lock = threading.Lock()
         super().__init__(str(path), IssuanceHandler)
-        # Parent directory is owner-private before bind; chmod further narrows socket.
-        # Production requires administrator-provisioned separate evaluator identity.
+        # The socket can be evaluator-group writable in group-isolated mode,
+        # but never world-accessible; Linux SO_PEERCRED still binds the UID.
         try:
-            os.chmod(path, 0o600)
+            if evaluator_gid is not None:
+                os.chown(path, -1, evaluator_gid)
+            os.chmod(path, 0o660 if evaluator_gid is not None else 0o600)
+            st = pathlib.Path(path).lstat()
+            if (not stat.S_ISSOCK(st.st_mode) or st.st_uid != os.geteuid()
+                or (evaluator_gid is not None and st.st_gid != evaluator_gid)):
+                raise PermissionError("issuer socket ownership mismatch")
         except OSError:
             self.server_close()
             raise

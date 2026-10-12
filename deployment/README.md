@@ -44,3 +44,50 @@ Run `python3 -m deployment.readiness` before attempting installation. It checks 
 
 ## Mandatory acceptance gate
 `python3 -m deployment.acceptance` refuses to authorize installation, even when a caller submits claims of successful checks. This is deliberate: no verifier-operated, raw-evidence-backed cross-account socket test or trusted challenge issuer exists. See `docs/BROKER-CHALLENGE-CONTRACT.md`. Do not treat account provisioning as authorization to enable the service.
+
+## Dedicated evaluator and restricted broker delivery (new development implementation)
+
+`deployment/provision-evaluator.sh` performs a read-only dry run by default.
+An independent administrator may review and run it with `--apply` to create
+`gts-evaluator` as a locked identity; it deliberately does not create secrets,
+change existing service groups, or enable services. The preflight, readiness
+and acceptance reports now require three distinct Linux UIDs.
+
+`observer.issuance.IssuanceServer` supports an optional observer-owned
+issuer directory `0710` with its group restricted to `gts-evaluator`. The
+issuer socket is group `0660`, additionally verifies the connecting
+evaluator's **kernel-supplied UID**, and refuses broader directory modes.
+The directory group assignment and supplementary service group membership
+must be independently provisioned by a privileged administrator. The
+in-memory `ChallengeAuthority` grants only a single `synthetic-effect`
+case-bound, expiring token.
+
+`broker.delivery.DeliveryServer` provides evaluator-UID-checked, bounded
+Unix socket ingress and forwards exactly one case-bound event to the existing
+observer client. Its delivery parent must be broker-owned `0710`, with
+`gts-evaluator` group and `0660` socket where independently provisioned.
+The broker cannot issue its own challenge; it can only forward an evaluator's
+already issued token. Ambiguous delivery claims remain in doubt and cannot
+be blindly retried within the process lifetime.
+
+The new tests exercise same-user IPC, kernel-UID mismatch simulation,
+permission denials, invalid tokens, and replay prevention. They **do not**
+demonstrate a real separate-UID access-control test. The test fixture has
+an explicit same-UID exception; the default broker constructor refuses
+same-identity mode. Never enable this exception in a production service.
+
+### Deployment restrictions
+
+These IPC primitives are **not wired into an approved production observer
+runtime**. On Prometheus the `gts-evaluator` identity, installed observer
+runtime, protected observer-owned signing keys, independent witness, and
+complete authoritative recovery remain unavailable. Do not enable the
+provided systemd blueprint or mistake a successful socket transfer for
+independent observation or release authorization. Physical tests and
+cross-account process evidence remain mandatory.
+
+The observer runtime's in-memory issuance table is not persistent across
+restarts. The delivery broker's attempted-set is likewise in-memory; these
+properties require a protected durable transaction protocol and recovery
+before production. Never release or qualify the system by passing booleans
+from the tested workload.

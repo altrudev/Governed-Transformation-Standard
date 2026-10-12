@@ -8,7 +8,7 @@ import shutil
 import stat
 
 def inspect():
-    names = ("gts-observer", "gts-broker")
+    names = ("gts-observer", "gts-broker", "gts-evaluator")
     identities = {}
     for name in names:
         try:
@@ -17,9 +17,9 @@ def inspect():
                                 "gid": record.pw_gid, "shell": record.pw_shell}
         except KeyError:
             identities[name] = {"present": False}
-    distinct = (all(x["present"] for x in identities.values())
-                and identities[names[0]]["uid"] != identities[names[1]]["uid"]
-                and os.getuid() not in (identities[names[0]]["uid"], identities[names[1]]["uid"]))
+    uids = [x["uid"] for x in identities.values() if x["present"]]
+    distinct = (len(uids) == len(names) and len(set(uids)) == len(names)
+                and os.getuid() not in uids)
     directories = {}
     for path in ("/run/gts-observer", "/var/lib/gts-observer"):
         p = pathlib.Path(path)

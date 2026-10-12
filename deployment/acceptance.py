@@ -4,6 +4,8 @@ from deployment.readiness import inspect
 
 REQUIRED = (
     "actual_host_uid_socket_test",
+    "dedicated_evaluator_uid_and_socket_access",
+    "broker_delivery_path_and_anti_impersonation",
     "broker_challenge_issuance",
     "observer_key_custody",
     "durable_journal_recovery",
