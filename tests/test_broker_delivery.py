@@ -55,7 +55,7 @@ class BrokerDeliveryTests(unittest.TestCase):
             thread.join(timeout=3)
         self.temp.cleanup()
 
-    def test_end_to_end_observed_durable_once(self):
+    def test_synthetic_receipt_durably_recorded_once(self):
         token = request_challenge(self.issuer.server_address, "case-1")
         event = {"case_id": "case-1", "operation": "synthetic-effect",
                  "challenge": token}

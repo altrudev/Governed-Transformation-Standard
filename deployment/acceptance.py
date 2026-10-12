@@ -20,7 +20,7 @@ def evaluate(evidence=None):
         "install_authorized": False,
         "host_readiness": host["checks"],
         "integration_checks": checks,
-        "reason": "Required independently witnessed host tests and trusted broker challenge protocol not implemented",
+        "reason": "Required independently witnessed host tests, protected issuer/broker/runtime wiring and durable recovery not independently qualified",
         "requested_evidence_ignored": bool(evidence),
     }
 if __name__ == "__main__":
