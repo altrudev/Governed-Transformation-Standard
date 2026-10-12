@@ -1,4 +1,5 @@
 import os
+import stat
 import tempfile
 import threading
 import unittest
@@ -19,6 +20,27 @@ class IssuanceSocketTests(unittest.TestCase):
         self.server.server_close()
         self.thread.join(timeout=3)
         self.tmp.cleanup()
+    def test_world_traversable_parent_rejected(self):
+        other=Path(self.tmp.name)/"public"
+        other.mkdir(mode=0o755)
+        other.chmod(0o755)
+        with self.assertRaises(PermissionError):
+            IssuanceServer(other/"issuer.sock",self.authority,os.getuid())
+    def test_socket_owner_only(self):
+        self.assertEqual(stat.S_IMODE(self.path.stat().st_mode),0o600)
+    def test_existing_socket_path_rejected(self):
+        with self.assertRaises(ValueError):
+            IssuanceServer(self.path,self.authority,os.getuid())
+    def test_malformed_scope_rejected(self):
+        import socket, json
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            client.settimeout(2)
+            client.connect(str(self.path))
+            client.sendall(json.dumps({"case_id":"case-A","purpose":"synthetic-effect",
+                                      "ttl_seconds":301}).encode()+b"\n")
+            client.shutdown(socket.SHUT_WR)
+            self.assertEqual(client.recv(512),b"")
+        self.assertFalse(self.authority.consume(case_id="case-A",purpose="synthetic-effect",token="fake"))
     def test_issued_token_binds_case(self):
         token=request_challenge(self.path,"case-A")
         self.assertFalse(self.authority.consume(case_id="case-B",purpose="synthetic-effect",token=token))

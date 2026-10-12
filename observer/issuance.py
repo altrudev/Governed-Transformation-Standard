@@ -4,6 +4,8 @@ Kernel peer UID authenticates the caller. This is a testable IPC primitive,
 not an installed evaluator identity or secure broker-delivery mechanism.
 """
 import json
+import pathlib
+import stat
 import os
 import socket
 import socketserver
@@ -17,10 +19,23 @@ class IssuanceServer(socketserver.ThreadingUnixStreamServer):
             raise ValueError("invalid evaluator identity")
         if observer_uid is not None and evaluator_uid == observer_uid:
             raise ValueError("evaluator must be distinct from observer")
+        location = pathlib.Path(path)
+        if not location.parent.is_dir() or location.is_symlink() or location.exists():
+            raise ValueError("issuer socket location unavailable or already occupied")
+        parent = location.parent.stat()
+        if (parent.st_uid != os.geteuid() or stat.S_IMODE(parent.st_mode) & 0o077):
+            raise PermissionError("issuer socket directory must be owner-private")
         self.authority = authority
         self.evaluator_uid = evaluator_uid
         self.lock = threading.Lock()
         super().__init__(str(path), IssuanceHandler)
+        # Parent directory is owner-private before bind; chmod further narrows socket.
+        # Production requires administrator-provisioned separate evaluator identity.
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            self.server_close()
+            raise
 
 class IssuanceHandler(socketserver.StreamRequestHandler):
     def handle(self):
