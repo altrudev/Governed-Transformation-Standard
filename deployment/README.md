@@ -91,3 +91,18 @@ restarts. The delivery broker's attempted-set is likewise in-memory; these
 properties require a protected durable transaction protocol and recovery
 before production. Never release or qualify the system by passing booleans
 from the tested workload.
+
+## Read-only deployed socket-custody preflight
+
+`python3 -m deployment.socket_custody` checks the real host's three
+separately owned directories and three restricted AF_UNIX sockets using
+`lstat` (not symlink-following `stat`). Expected owners/groups/modes are:
+`/run/gts-issuer` observer/evaluator 0710 and socket 0660;
+`/run/gts-broker-delivery` broker/evaluator 0710 and socket 0660;
+`/run/gts-observer` observer/broker 0710 and socket 0660.
+
+Every missing account/path or incorrect owner, group, mode or kind is
+unqualified. The readiness gate incorporates this check but cannot
+authorize installation or release. Actual different-UID socket
+connect/denial tests, journal/key custody, broker/observer runtime
+startup and independent witness evidence are still required.

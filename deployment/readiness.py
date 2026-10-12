@@ -4,6 +4,7 @@ import os
 import pathlib
 import pwd
 import stat
+from deployment.socket_custody import inspect as inspect_socket_custody
 
 def inspect():
     checks = {}
@@ -28,6 +29,7 @@ def inspect():
     # Never read, log or export the credential; its existence alone is not proof of quality.
     checks["credential_file_present"] = credential.is_file()
     checks["unit_installed"] = pathlib.Path("/etc/systemd/system/gts-observer.service").is_file()
+    checks["cross_account_socket_custody"] = inspect_socket_custody()["all_socket_custody_prerequisites"]
     return {"ready_for_operator_deployment_review": all(checks.values()),
             "checks":checks, "credential_contents_accessed":False, "changes_made":False}
 
