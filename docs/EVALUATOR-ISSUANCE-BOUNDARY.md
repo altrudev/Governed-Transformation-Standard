@@ -19,3 +19,11 @@ Group access alone is not identity authority; UID checking remains mandatory.
 The host accounts, directories, key hierarchy, independent receipt signing
 and runtime installation must be established by independently administered
 operations. Current unit fixtures are not real cross-account acceptance.
+
+
+The delivery broker's new persistent reservation table stores bounded
+case IDs and one of two states: `IN_DOUBT` or `ACKNOWLEDGED`. A single
+`IN_DOUBT` reservation is committed before attempting the observer delivery,
+preventing blind duplicate submission after a crash. It does not convert a
+broker response into independently observed evidence; external receipt
+verification and human-governed reconciliation are still required.

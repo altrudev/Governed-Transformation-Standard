@@ -34,12 +34,15 @@ class DeliveryServer(socketserver.ThreadingUnixStreamServer):
     daemon_threads = True
 
     def __init__(self, path, observer_socket, *, evaluator_uid,
-                 broker_uid=None, evaluator_gid=None, require_distinct=True):
+                 broker_uid=None, evaluator_gid=None, require_distinct=True,
+                 durable_attempts=None):
         if (not isinstance(evaluator_uid, int) or evaluator_uid < 0
                 or broker_uid is not None and broker_uid != os.geteuid()):
             raise ValueError("invalid broker or evaluator identity")
         if require_distinct and (broker_uid is None or evaluator_uid == broker_uid):
             raise ValueError("the evaluator and broker identities must be distinct")
+        if require_distinct and durable_attempts is None:
+            raise ValueError("production broker requires durable reservation state")
         path = Path(path)
         if not path.parent.is_dir() or path.is_symlink() or path.exists():
             raise ValueError("delivery socket path unavailable")
@@ -60,6 +63,7 @@ class DeliveryServer(socketserver.ThreadingUnixStreamServer):
         self.evaluator_gid = evaluator_gid
         self._attempted = set()
         self._lock = threading.Lock()
+        self.durable_attempts = durable_attempts
         super().__init__(str(path), Handler)
         try:
             if evaluator_gid is not None:
@@ -93,11 +97,18 @@ class Handler(socketserver.StreamRequestHandler):
             # Reserve BEFORE forwarding. Any ambiguous acknowledgement is
             # IN_DOUBT, never safe for blind retry or duplicate effect.
             with self.server._lock:
-                if case in self.server._attempted:
-                    raise ValueError("duplicate or ambiguous delivery")
-                self.server._attempted.add(case)
+                if self.server.durable_attempts is not None:
+                    if not self.server.durable_attempts.reserve(case):
+                        raise ValueError("duplicate, ambiguous or unavailable durable reservation")
+                else:
+                    if case in self.server._attempted:
+                        raise ValueError("duplicate or ambiguous delivery")
+                    self.server._attempted.add(case)
             if not submit(self.server.observer_socket, event):
                 raise PermissionError("observer rejected delivery")
+            if (self.server.durable_attempts is not None
+                    and not self.server.durable_attempts.acknowledge(case)):
+                raise PermissionError("observer accepted but broker record is in doubt")
             self.wfile.write(b'{"status":"recorded"}\n')
         except (OSError, ValueError, TypeError, UnicodeError, PermissionError):
             return

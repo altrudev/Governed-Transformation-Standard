@@ -106,3 +106,27 @@ unqualified. The readiness gate incorporates this check but cannot
 authorize installation or release. Actual different-UID socket
 connect/denial tests, journal/key custody, broker/observer runtime
 startup and independent witness evidence are still required.
+
+
+## Durable broker delivery reservations (development, October 13)
+
+The GTS broker previously tracked already-attempted cases only in a process-local
+set. The new `broker.durable_attempts.DurableAttempts` uses a broker-owned,
+mode `0600` SQLite database in a broker-owned, mode `0700` directory.
+SQLite's `synchronous=FULL` and rollback-journal mode are used to commit
+`IN_DOUBT` before forwarding an event to the observer. An acknowledgement
+is committed only after the observer confirms acceptance. Process restarts
+must never release a prior reservation for blind retry.
+
+The `DeliveryServer` now requires the durable attempts store in its default
+production identity-separation mode. In-process simulated identity tests may
+opt out only by explicitly setting `require_distinct=False`.
+
+This still **does not** establish physical persistence across sudden power
+loss, independently anchored rollback resistance, incident reconciliation
+authority, cryptographic signing or complete actual host identity separation.
+A case remaining `IN_DOUBT` needs independently observed outcome resolution
+and protected operator authorization—not automatic reset, delete or retry.
+The root-controlled service installer must supply a secure database path and
+the actual runtime must construct this broker with that database. Neither is
+installed by this change.
