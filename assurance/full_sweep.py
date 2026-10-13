@@ -9,6 +9,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from assurance.witness import check_external_witnesses
+from assurance.system_closure import check_system_closure, MANDATORY_SYSTEM
 
 ROOT = Path(__file__).resolve().parents[1]
 MANDATORY_HOST = (
@@ -45,20 +46,39 @@ def run(root=ROOT, execute_tests=True, witness_dir=None, trust_anchor=None):
     diff = subprocess.run(["git", "status", "--porcelain"], cwd=root, capture_output=True, text=True)
     clean = diff.returncode == 0 and not diff.stdout.strip()
     host = check_external_witnesses(witness_dir, trust_anchor, MANDATORY_HOST, revision)
-    accepted = bool(tests) and all(item["status"] == "PASS" for item in tests.values()) and clean and all(
-        item["status"] == "PASS" for item in host.values())
+    system, closure = check_system_closure(
+        Path(witness_dir) / "system" if witness_dir else None,
+        trust_anchor, revision)
+    accepted = (bool(tests) and clean
+        and all(item["status"] == "PASS" for item in tests.values())
+        and all(item["status"] == "PASS" for item in host.values())
+        and all(item["status"] == "PASS" for item in system.values())
+        and closure["status"] == "PASS")
     return {
-        "schema": "gts.release-evidence.v1", "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "schema": "gts.release-evidence.v2", "generated_utc": datetime.now(timezone.utc).isoformat(),
         "revision": revision, "working_tree_clean": clean,
         "test_execution": tests, "required_host_witnesses": host,
-        "total_gates": len(tests)+len(host),
-        "verified_gates": sum(item["status"]=="PASS" for item in tests.values()) + sum(item["status"]=="PASS" for item in host.values()),
+        "required_system_evidence": system,
+        "dependency_closure": closure,
+        "total_gates": len(tests)+len(host)+len(system),
+        "verified_gates": (sum(item["status"]=="PASS" for item in tests.values())
+            + sum(item["status"]=="PASS" for item in host.values())
+            + sum(item["status"]=="PASS" for item in system.values())),
+        "blocked_dependencies": (
+            ["local_test_" + key for key, value in tests.items() if value["status"] != "PASS"]
+            + ["host_witness_" + key for key, value in host.items() if value["status"] != "PASS"]
+            + ["system_evidence_" + key for key, value in system.items() if value["status"] != "PASS"]
+            + ([] if clean else ["source_tree_not_clean"])
+            + ([] if closure["status"] == "PASS" else ["dependency_graph_not_closed"])
+        ),
         "overall": "PASS" if accepted else "BLOCKED",
         "release_authorized": accepted,
         "limitations": [
             "Test process exit codes and output hashes are local evidence, not independent attestations.",
             "Host witnesses require a separate controlled evidence ingestion and verification workflow.",
-            "An externally anchored observer journal and production release equivalence remain unverified."
+            "An externally anchored observer journal and production release equivalence remain unverified.",
+            "A release is never admitted from local PASS counts without independently witnessed system-wide scope and dependency closure.",
+            "Validated signatures do not independently establish truth or completeness of evidence; external assessor must inspect measured effects and trust domains."
         ],
     }
 
