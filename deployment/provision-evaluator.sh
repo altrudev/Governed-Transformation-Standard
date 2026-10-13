@@ -5,13 +5,27 @@ set -eu
 if [ "${1:-}" != "--apply" ]; then
   echo "DRY RUN: verify observer/broker UIDs and create a locked, dedicated gts-evaluator OS account."
   echo "No keys, services, privileges, groups, or socket ACLs are installed by this script."
-  echo "Apply only after review: sudo sh deployment/provision-evaluator.sh --apply"
+  echo "Never execute privileged scripts from a developer-writable checkout."
+  echo "After approved revision review and root-owned installation at /opt/gts:"
+  echo "  sudo sh /opt/gts/deployment/provision-evaluator.sh --apply"
   exit 0
 fi
 if [ "$(id -u)" -ne 0 ]; then
   echo "ERROR: administrator identity is required" >&2
   exit 1
 fi
+script=$(readlink -f "$0")
+if [ "$script" != /opt/gts/deployment/provision-evaluator.sh ]; then
+  echo "ERROR: refusing privileged execution outside independently installed source" >&2
+  exit 1
+fi
+for trusted in /opt /opt/gts /opt/gts/deployment "$script"; do
+  if [ "$(stat -c %u "$trusted")" != 0 ] ||
+     [ -n "$(find "$trusted" -maxdepth 0 -perm /022 -print)" ]; then
+    echo "ERROR: provisioner path is not protected by root ownership" >&2
+    exit 1
+  fi
+done
 for name in gts-observer gts-broker; do
   if ! getent passwd "$name" >/dev/null; then
     echo "ERROR: required account $name is missing; review existing host first" >&2

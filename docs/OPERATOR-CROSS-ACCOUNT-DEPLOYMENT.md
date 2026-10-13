@@ -14,10 +14,11 @@ AI-controlled application or broker may carry out privilege provisioning.
 
 ## Required sequence
 
-1. Inspect deployment/provision-evaluator.sh and only after human approval
-   execute its --apply mode as authorized administrator. Verify distinct UIDs.
-2. Pin and attest reviewed Git commit. Install immutable, root-owned source
-   and pinned dependencies at /opt/gts, never a writable model-controlled clone.
+1. Independently review and pin the source revision and provisioner digest.
+   Install reviewed, root-owned, non-writable code under /opt/gts.
+2. Only after independent administrator approval, execute --apply from the
+   reviewed /opt/gts/deployment/provision-evaluator.sh file. Do not execute
+   its development-checkout copy with root privileges. Verify distinct UIDs.
 3. Provision deployment/gts-sockets.tmpfiles.conf: owner:group and modes
    must match observer:evaluator 0710, observer:broker 0710 and
    broker:evaluator 0710. Protected state directories are owner-only 0700.
