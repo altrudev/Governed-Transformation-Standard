@@ -4,6 +4,8 @@
 Description=GTS synthetic evidence observer and scoped evaluator issuer
 After=local-fs.target systemd-tmpfiles-setup.service
 Wants=systemd-tmpfiles-setup.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
 [Service]
 Type=exec
 User=gts-observer
@@ -13,7 +15,6 @@ WorkingDirectory=/opt/gts
 ExecStart=/usr/bin/python3 -m observer.runtime
 Restart=on-failure
 RestartSec=5
-StartLimitBurst=3
 UMask=0077
 NoNewPrivileges=yes
 ProtectSystem=strict

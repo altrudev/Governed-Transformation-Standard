@@ -3,6 +3,8 @@
 Description=GTS restricted synthetic evaluator delivery broker
 After=local-fs.target systemd-tmpfiles-setup.service gts-observer.service
 Wants=systemd-tmpfiles-setup.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
 [Service]
 Type=exec
 User=gts-broker
