@@ -1,16 +1,20 @@
-# Example deployment blueprint; NOT installed by this repository.
+# Disabled-by-default reference. Requires privileged operator-provisioned
+# keys, separate OS accounts/groups and root-installed code.
 [Unit]
-Description=GTS isolated evidence observer (example)
-After=local-fs.target
+Description=GTS synthetic evidence observer and scoped evaluator issuer
+After=local-fs.target systemd-tmpfiles-setup.service
+Wants=systemd-tmpfiles-setup.service
 [Service]
 Type=exec
 User=gts-observer
-Group=gts-broker
+Group=gts-observer
+SupplementaryGroups=gts-broker gts-evaluator
+WorkingDirectory=/opt/gts
+ExecStart=/usr/bin/python3 -m observer.runtime
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=3
 UMask=0077
-LoadCredential=observer_challenge:/etc/gts-observer/observer_challenge
-# Requires administrator-provisioned 32+ character challenge; do not enable without it.
-ExecStart=/usr/bin/python3 -m observer.service
-WorkingDirectory=/opt/gts-observer
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
@@ -23,11 +27,9 @@ RestrictSUIDSGID=yes
 LockPersonality=yes
 RestrictAddressFamilies=AF_UNIX
 IPAddressDeny=any
-RuntimeDirectory=gts-observer
-RuntimeDirectoryMode=0710
 StateDirectory=gts-observer
 StateDirectoryMode=0700
-ReadWritePaths=/run/gts-observer /var/lib/gts-observer
+ReadWritePaths=/run/gts-issuer /run/gts-observer /var/lib/gts-observer
 MemoryMax=256M
 TasksMax=32
 CPUQuota=25%

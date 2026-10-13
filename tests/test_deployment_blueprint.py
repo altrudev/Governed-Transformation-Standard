@@ -9,9 +9,10 @@ class UnitBlueprintTests(unittest.TestCase):
         cfg.read(UNIT)
         service=cfg["Service"]
         self.assertEqual(service["User"],"gts-observer")
-        self.assertEqual(service["LoadCredential"],"observer_challenge:/etc/gts-observer/observer_challenge")
-        self.assertEqual(service["Group"],"gts-broker")
-        self.assertEqual(service["RuntimeDirectoryMode"],"0710")
+        self.assertEqual(service["ExecStart"],"/usr/bin/python3 -m observer.runtime")
+        self.assertEqual(service["Group"],"gts-observer")
+        self.assertEqual(service["SupplementaryGroups"],"gts-broker gts-evaluator")
+        self.assertEqual(service["ReadWritePaths"],"/run/gts-issuer /run/gts-observer /var/lib/gts-observer")
         self.assertEqual(service["StateDirectoryMode"],"0700")
         self.assertEqual(service["NoNewPrivileges"],"yes")
         self.assertEqual(service["ProtectSystem"],"strict")

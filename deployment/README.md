@@ -130,3 +130,21 @@ and protected operator authorization—not automatic reset, delete or retry.
 The root-controlled service installer must supply a secure database path and
 the actual runtime must construct this broker with that database. Neither is
 installed by this change.
+
+## Single GTS runtime pipeline candidate (October 13)
+
+The observer runtime now hosts evaluator issuance and strict broker-only
+synthetic receipt in one observer UID/process. The broker runtime is a separate
+UID, storing a durable delivery reservation before dispatch. The evaluator
+has a single-purpose synthetic client.
+
+SignedDurableEvents signs every persisted journal transition using an
+independently provisioned Ed25519 key; it blocks unverifiable checkpoints
+and crash divergence. Socket lifecycle recovery holds a singleton lease,
+removes only proven stale owner-controlled paths, and refuses live or
+foreign-owned sockets.
+
+The new unit templates and tmpfiles manifest are source artifacts only,
+not installed services. Read docs/OPERATOR-CROSS-ACCOUNT-DEPLOYMENT.md
+before any privilege transition. No claims of independent observation,
+external anchoring or release authorization are made by these unit tests.

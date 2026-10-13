@@ -98,6 +98,12 @@ class DurableEvents:
             self._cases.add(case_id)
             return digest
 
+    def checkpoint(self):
+        """Observed synthetic journal state, NOT a physical-effect claim."""
+        with self.lock:
+            return {"schema": "gts.synthetic-durable-journal-state.v1",
+                    "entry_count": self._count, "last_sha256": self._previous}
+
     @property
     def count(self):
         return self._count
