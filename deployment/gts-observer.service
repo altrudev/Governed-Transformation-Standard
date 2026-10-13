@@ -1,0 +1,40 @@
+# Disabled-by-default reference. Requires privileged operator-provisioned
+# keys, separate OS accounts/groups and root-installed code.
+[Unit]
+Description=GTS synthetic evidence observer and scoped evaluator issuer
+After=local-fs.target systemd-tmpfiles-setup.service
+Wants=systemd-tmpfiles-setup.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
+[Service]
+Type=exec
+User=gts-observer
+Group=gts-observer
+SupplementaryGroups=gts-broker gts-evaluator
+WorkingDirectory=/opt/gts
+ExecStart=/usr/bin/python3 -m observer.runtime
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+StateDirectory=gts-observer
+StateDirectoryMode=0700
+ReadWritePaths=/run/gts-issuer /run/gts-observer /var/lib/gts-observer
+MemoryMax=256M
+TasksMax=32
+CPUQuota=25%
+LimitNOFILE=128
+SystemCallArchitectures=native
+[Install]
+WantedBy=multi-user.target

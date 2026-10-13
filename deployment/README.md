@@ -1,0 +1,150 @@
+# Dedicated-host-principal observer: reviewed deployment blueprint
+
+This is a proposed service unit, **not a deployed service**. It presupposes a separately created locked system account `gts-observer`, a reviewed observer implementation at `/opt/gts-observer`, proper socket access via a narrowly controlled broker and no shared credentials with the test subject.
+
+**Not runnable yet:** `observer.service` does not exist. The supplied unit is an auditable profile only and MUST NOT be enabled. It intentionally exposes neither a privileged socket nor any signing key. The deployment must be completed and tested before use.
+
+A privileged administrator must separately review and provision an observer OS principal with no login, an isolated working directory, restrict readable keys to that principal, and record file ownership. Do not mount host `/var/lib/gts-observer` into an untrusted test sandbox. The observer process must not accept commands that cause arbitrary filesystem writes or sign caller-controlled arbitrary data. Access to evidence should be through a narrowly scoped broker with peer credentials, a challenge protocol and audit records.
+
+Deployment gates:
+1. Implement authenticated observer executable and a bounded protocol, first.
+2. Verify the systemd sandbox directives with `systemd-analyze security` and a local non-production host.
+3. Provision the service account and key using explicit operator approval and a rollback plan.
+4. Test from the untrusted adapter identity: key read denied; observer journal mutation denied; unrelated socket access denied; permitted effect receipt still observable.
+5. Add key registration/revocation and external observer-held signatures, plus restart/crash tests.
+6. Independently reproduce results before claiming external verification.
+
+Rollback: disable/stop the newly introduced unit, restore the prior service configuration, and leave evidence journals retained for review. Account deletion or key destruction is a separate approval-controlled action.
+
+This blueprint is not an authorization to modify the host's users or run an unfinished service.
+
+## Implemented protocol prototype
+`observer.service` now exists as a fail-closed, test-only Unix event receiver: exact schema, configured per-deployment challenge, bounded messages, and duplicate case rejection. It does not expose an arbitrary signing, file-writing or shell-command endpoint. This does **not** make the systemd blueprint deployable: no authenticated peer identity, separate key custodian, durable journal, signature service, broker, or service-specific integration is complete. The challenge is bearer-style and would be visible to any process granted access; it is not issuer identity.
+
+## Peer credential gate (Linux prototype)
+The receiver checks Linux `SO_PEERCRED` kernel-supplied peer UID and rejects clients outside the configured UID allowlist before parsing events. Service startup requires `GTS_ALLOWED_PEER_UID`. Local tests exercise both accepted and denied peers by changing the allowlist, **not** by provisioning an independent host account. Kernel UID only authenticates the connecting local process identity; it does not prove application authorization, validate an effect, or provide third-party verification. The future broker must have its own service account and be the sole allowed peer, with end-to-end challenge and effect authorization.
+
+## Read-only cross-account preflight
+Run `python3 -m deployment.preflight`. It inspects whether dedicated `gts-observer` and `gts-broker` users exist, have distinct UIDs, and whether service directories exist. It does not modify accounts, files or systemd. A passing preflight is only a prerequisite, not proof of correct ownership, socket permissions, independent key custody or service operation. Follow with a separately approved deployment and real access-denial tests.
+
+## Explicit host-account provisioning
+The idempotency-conscious proposal `deployment/provision-host.sh` prints its intended changes by default. Only an administrator can invoke it with `--apply` after reviewing the script. It refuses existing named accounts or existing observer paths rather than changing unknown state. It creates no keys, grants no broker socket access, and starts no service. If provisioning partially fails, an administrator must examine the identities and ownership before attempting any rollback; deleting accounts automatically could orphan retained evidence.
+
+## Broker socket access and observer storage separation
+The service runs under host UID `gts-observer` with primary group `gts-broker`. Its runtime directory is intended to be mode 0710, traversable by the broker group but not listable. The observer socket is mode 0660, allowing that group to connect. The state directory is mode 0700, owner-only regardless of group. These are **proposed** runtime permissions; effective systemd directory ownership and supplementary group effects must be verified on-host after installation. Do not add the ordinary interactive user to either privileged group. The UID allowlist must match the actually provisioned broker UID and is currently an example value, not a portable hardcoded identity. The service still requires administrator-provisioned configuration/secret challenge.
+
+## Host verification checkpoint
+After provisioning, verify successful observer access and denied broker access **with their actual exit codes**. Existence and directory mode inspection alone are insufficient. The runtime socket directory is generated when a reviewed systemd service starts; it should not be treated as a provisioning-script artifact. Do not enable the service until a distinct broker/observer identity test and journal/key custody test are reproducible.
+
+## Startup configuration contract (revised)
+The service now requires a systemd `LoadCredential=observer_challenge` file provisioned by the operator at `/etc/gts-observer/observer_challenge`. The observer reads the credential from `CREDENTIALS_DIRECTORY`, receives its socket directory from systemd `RUNTIME_DIRECTORY`, and resolves `gts-broker` to a host UID at startup; it no longer relies on a hardcoded UID or a challenge directly passed through an environment variable. Missing configuration fails closed. The unit is **not yet approved for enablement**. The broker's secure challenge acquisition remains a separate design issue; the challenge alone is not authentication and must not be exposed to the test subject.
+
+## Deployment readiness gate
+Run `python3 -m deployment.readiness` before attempting installation. It checks real host accounts, evidence directory mode, observer code under `/opt`, operator-provisioned credential file existence, and installed unit existence, without reading credentials or changing the host. A green readiness report is **not** a functional access-control test or permission to start the service; credentials, package provenance, broker distribution and rollback must be separately reviewed.
+
+## Mandatory acceptance gate
+`python3 -m deployment.acceptance` refuses to authorize installation, even when a caller submits claims of successful checks. This is deliberate: no verifier-operated, raw-evidence-backed cross-account socket test or trusted challenge issuer exists. See `docs/BROKER-CHALLENGE-CONTRACT.md`. Do not treat account provisioning as authorization to enable the service.
+
+## Dedicated evaluator and restricted broker delivery (new development implementation)
+
+`deployment/provision-evaluator.sh` performs a read-only dry run by default.
+An independent administrator may review and run it with `--apply` to create
+`gts-evaluator` as a locked identity; it deliberately does not create secrets,
+change existing service groups, or enable services. The preflight, readiness
+and acceptance reports now require three distinct Linux UIDs.
+
+`observer.issuance.IssuanceServer` supports an optional observer-owned
+issuer directory `0710` with its group restricted to `gts-evaluator`. The
+issuer socket is group `0660`, additionally verifies the connecting
+evaluator's **kernel-supplied UID**, and refuses broader directory modes.
+The directory group assignment and supplementary service group membership
+must be independently provisioned by a privileged administrator. The
+in-memory `ChallengeAuthority` grants only a single `synthetic-effect`
+case-bound, expiring token.
+
+`broker.delivery.DeliveryServer` provides evaluator-UID-checked, bounded
+Unix socket ingress and forwards exactly one case-bound event to the existing
+observer client. Its delivery parent must be broker-owned `0710`, with
+`gts-evaluator` group and `0660` socket where independently provisioned.
+The broker cannot issue its own challenge; it can only forward an evaluator's
+already issued token. Ambiguous delivery claims remain in doubt and cannot
+be blindly retried within the process lifetime.
+
+The new tests exercise same-user IPC, kernel-UID mismatch simulation,
+permission denials, invalid tokens, and replay prevention. They **do not**
+demonstrate a real separate-UID access-control test. The test fixture has
+an explicit same-UID exception; the default broker constructor refuses
+same-identity mode. Never enable this exception in a production service.
+
+### Deployment restrictions
+
+These IPC primitives are **not wired into an approved production observer
+runtime**. On Prometheus the `gts-evaluator` identity, installed observer
+runtime, protected observer-owned signing keys, independent witness, and
+complete authoritative recovery remain unavailable. Do not enable the
+provided systemd blueprint or mistake a successful socket transfer for
+independent observation or release authorization. Physical tests and
+cross-account process evidence remain mandatory.
+
+The observer runtime's in-memory issuance table is not persistent across
+restarts. The delivery broker's attempted-set is likewise in-memory; these
+properties require a protected durable transaction protocol and recovery
+before production. Never release or qualify the system by passing booleans
+from the tested workload.
+
+## Read-only deployed socket-custody preflight
+
+`python3 -m deployment.socket_custody` checks the real host's three
+separately owned directories and three restricted AF_UNIX sockets using
+`lstat` (not symlink-following `stat`). Expected owners/groups/modes are:
+`/run/gts-issuer` observer/evaluator 0710 and socket 0660;
+`/run/gts-broker-delivery` broker/evaluator 0710 and socket 0660;
+`/run/gts-observer` observer/broker 0710 and socket 0660.
+
+Every missing account/path or incorrect owner, group, mode or kind is
+unqualified. The readiness gate incorporates this check but cannot
+authorize installation or release. Actual different-UID socket
+connect/denial tests, journal/key custody, broker/observer runtime
+startup and independent witness evidence are still required.
+
+
+## Durable broker delivery reservations (development, October 13)
+
+The GTS broker previously tracked already-attempted cases only in a process-local
+set. The new `broker.durable_attempts.DurableAttempts` uses a broker-owned,
+mode `0600` SQLite database in a broker-owned, mode `0700` directory.
+SQLite's `synchronous=FULL` and rollback-journal mode are used to commit
+`IN_DOUBT` before forwarding an event to the observer. An acknowledgement
+is committed only after the observer confirms acceptance. Process restarts
+must never release a prior reservation for blind retry.
+
+The `DeliveryServer` now requires the durable attempts store in its default
+production identity-separation mode. In-process simulated identity tests may
+opt out only by explicitly setting `require_distinct=False`.
+
+This still **does not** establish physical persistence across sudden power
+loss, independently anchored rollback resistance, incident reconciliation
+authority, cryptographic signing or complete actual host identity separation.
+A case remaining `IN_DOUBT` needs independently observed outcome resolution
+and protected operator authorization—not automatic reset, delete or retry.
+The root-controlled service installer must supply a secure database path and
+the actual runtime must construct this broker with that database. Neither is
+installed by this change.
+
+## Single GTS runtime pipeline candidate (October 13)
+
+The observer runtime now hosts evaluator issuance and strict broker-only
+synthetic receipt in one observer UID/process. The broker runtime is a separate
+UID, storing a durable delivery reservation before dispatch. The evaluator
+has a single-purpose synthetic client.
+
+SignedDurableEvents signs every persisted journal transition using an
+independently provisioned Ed25519 key; it blocks unverifiable checkpoints
+and crash divergence. Socket lifecycle recovery holds a singleton lease,
+removes only proven stale owner-controlled paths, and refuses live or
+foreign-owned sockets.
+
+The new unit templates and tmpfiles manifest are source artifacts only,
+not installed services. Read docs/OPERATOR-CROSS-ACCOUNT-DEPLOYMENT.md
+before any privilege transition. No claims of independent observation,
+external anchoring or release authorization are made by these unit tests.

@@ -1,0 +1,39 @@
+# Disabled-by-default reference, not installed. No privileged command service.
+[Unit]
+Description=GTS restricted synthetic evaluator delivery broker
+After=local-fs.target systemd-tmpfiles-setup.service gts-observer.service
+Wants=systemd-tmpfiles-setup.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
+[Service]
+Type=exec
+User=gts-broker
+Group=gts-broker
+SupplementaryGroups=gts-evaluator
+WorkingDirectory=/opt/gts
+ExecStart=/usr/bin/python3 -m broker.runtime
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+StateDirectory=gts-broker
+StateDirectoryMode=0700
+ReadWritePaths=/run/gts-broker-delivery /var/lib/gts-broker
+MemoryMax=128M
+TasksMax=24
+CPUQuota=25%
+LimitNOFILE=128
+SystemCallArchitectures=native
+[Install]
+WantedBy=multi-user.target
