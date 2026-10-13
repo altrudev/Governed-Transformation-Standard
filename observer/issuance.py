@@ -92,8 +92,14 @@ def request_challenge(path, case_id, ttl_seconds=30):
         client.sendall(json.dumps(message).encode()+b"\n")
         client.shutdown(socket.SHUT_WR)
         response = client.recv(1024)
-    answer = json.loads(response)
-    token = answer["challenge"]
-    if not isinstance(token,str) or len(token)!=64:
+    if not response or len(response) > 1024 or not response.endswith(b"\n"):
+        raise ValueError("challenge request not granted")
+    try:
+        answer = json.loads(response)
+        token = answer["challenge"]
+    except (ValueError, TypeError, KeyError, UnicodeError) as exc:
+        raise ValueError("untrusted issuer response") from exc
+    if (not isinstance(token, str) or len(token) != 64
+            or any(c not in "0123456789abcdef" for c in token)):
         raise ValueError("untrusted issuer response")
     return token

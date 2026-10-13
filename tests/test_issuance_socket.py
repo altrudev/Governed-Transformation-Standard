@@ -52,7 +52,7 @@ class IssuanceSocketTests(unittest.TestCase):
             request_challenge(self.path,"forbidden")
     def test_reused_case_rejected(self):
         request_challenge(self.path,"case-A")
-        with self.assertRaises((ValueError, OSError)):
+        with self.assertRaisesRegex(ValueError, "challenge request not granted"):
             request_challenge(self.path,"case-A")
     def test_evaluator_same_as_observer_rejected(self):
         with self.assertRaises(ValueError):
